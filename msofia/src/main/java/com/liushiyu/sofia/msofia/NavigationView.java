@@ -8,7 +8,10 @@ import android.os.Build;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
 import android.view.Display;
+import android.view.KeyCharacterMap;
+import android.view.KeyEvent;
 import android.view.View;
+import android.view.ViewConfiguration;
 import android.view.WindowManager;
 
 public class NavigationView extends View {
@@ -49,11 +52,29 @@ public class NavigationView extends View {
             } else {
                 mDisplay.getRealMetrics(mDisplayMetrics);
                 mBarSize = mDisplayMetrics.heightPixels - getDisplayHeight(mDisplay);
-                setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), mDefaultBarSize);
+                if (checkDeviceHasNavigationBar(getContext())) {
+                    setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), getDefaultBarSize());
+                } else {
+                    setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), getBarSize());
+                }
             }
         } else {
             setMeasuredDimension(0, 0);
         }
+    }
+
+    public static boolean checkDeviceHasNavigationBar(Context activity) {
+        //通过判断设备是否有返回键、菜单键(不是虚拟键,是手机屏幕外的按键)来确定是否有navigation bar
+        boolean hasMenuKey = ViewConfiguration.get(activity)
+                .hasPermanentMenuKey();
+        boolean hasBackKey = KeyCharacterMap
+                .deviceHasKey(KeyEvent.KEYCODE_BACK);
+
+        if (!hasMenuKey && !hasBackKey) {
+            // 做任何自己需要做的,这个设备有一个导航栏
+            return true;
+        }
+        return false;
     }
 
     private static int getDisplayWidth(Display display) {
