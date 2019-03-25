@@ -1,10 +1,12 @@
 package com.liushiyu.sofia.msofia;
 
+import android.app.Activity;
 import android.content.Context;
 import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.graphics.Point;
 import android.os.Build;
+import android.support.annotation.RequiresApi;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
 import android.view.Display;
@@ -12,7 +14,11 @@ import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewConfiguration;
+import android.view.ViewGroup;
+import android.view.Window;
 import android.view.WindowManager;
+
+import java.lang.reflect.Field;
 
 public class NavigationView extends View {
 
@@ -42,10 +48,6 @@ public class NavigationView extends View {
         mDefaultBarSize = resources.getDimensionPixelSize(resourceId);
     }
 
-    private void log(String s) {
-//        Log.e("NavigationView", s);
-    }
-
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
@@ -57,10 +59,10 @@ public class NavigationView extends View {
                 mDisplay.getRealMetrics(mDisplayMetrics);
                 mBarSize = mDisplayMetrics.heightPixels - getDisplayHeight(mDisplay);
                 if (checkDeviceHasNavigationBar(getContext())) {
-                    log("是虚拟按键");
-                    setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), getDefaultBarSize());
+                    boolean systemUiVisible[] = isSystemUiVisible(((Activity) getContext()).getWindow());
+                    boolean navigation = systemUiVisible[1];
+                    setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), navigation ? getDefaultBarSize() : 0);
                 } else {
-                    log("是屏幕外的返回按键");
                     setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), getBarSize());
                 }
             }
@@ -73,7 +75,6 @@ public class NavigationView extends View {
      * 是否有虚拟按键屏幕
      */
     public static boolean checkDeviceHasNavigationBar(Context activity) {
-        //通过判断设备是否有返回键、菜单键(不是虚拟键,是手机屏幕外的按键)来确定是否有navigation bar
         boolean hasMenuKey = ViewConfiguration.get(activity)
                 .hasPermanentMenuKey();
         boolean hasBackKey = KeyCharacterMap
@@ -121,5 +122,58 @@ public class NavigationView extends View {
                 return false;
             }
         }
+    }
+
+    /**
+     *
+     * api min is 21 version
+     * 0:statusbar is visible
+     * 1:navigation is visible
+     *
+     * @return statusbar, navigation是否可见
+     */
+    @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN)
+    public static boolean[] isSystemUiVisible(Window window) {
+        boolean[] result = new boolean[]{false, false};
+        if (window == null) {
+            return result;
+        }
+        WindowManager.LayoutParams attributes = window.getAttributes();
+        if (attributes != null) {
+            result[0] = (attributes.flags & WindowManager.LayoutParams.FLAG_FULLSCREEN) != WindowManager.LayoutParams.FLAG_FULLSCREEN;
+            //
+            ViewGroup decorView = (ViewGroup) window.getDecorView();
+            result[1] = (((attributes.systemUiVisibility | decorView.getWindowSystemUiVisibility()) &
+                    View.SYSTEM_UI_FLAG_HIDE_NAVIGATION) == 0) && (attributes.flags & WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS) != 0;
+        }
+        //
+        Object decorViewObj = window.getDecorView();
+        Class<?> clazz = decorViewObj.getClass();
+        int mLastBottomInset = 0, mLastRightInset = 0, mLastLeftInset = 0;
+        try {
+            Field mLastBottomInsetField = clazz.getDeclaredField("mLastBottomInset");
+            mLastBottomInsetField.setAccessible(true);
+            mLastBottomInset = mLastBottomInsetField.getInt(decorViewObj);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        try {
+            Field mLastRightInsetField = clazz.getDeclaredField("mLastRightInset");
+            mLastRightInsetField.setAccessible(true);
+            mLastRightInset = mLastRightInsetField.getInt(decorViewObj);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        try {
+            Field mLastLeftInsetField = clazz.getDeclaredField("mLastLeftInset");
+            mLastLeftInsetField.setAccessible(true);
+            mLastLeftInset = mLastLeftInsetField.getInt(decorViewObj);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        boolean isNavBarToRightEdge = mLastBottomInset == 0 && mLastRightInset > 0;
+        int size = isNavBarToRightEdge ? mLastRightInset : (mLastBottomInset == 0 && mLastLeftInset > 0 ? mLastLeftInset : mLastBottomInset);
+        result[1] = result[1] && size > 0;
+        return result;
     }
 }
