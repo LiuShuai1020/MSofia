@@ -42,6 +42,10 @@ public class NavigationView extends View {
         mDefaultBarSize = resources.getDimensionPixelSize(resourceId);
     }
 
+    private void log(String s) {
+//        Log.e("NavigationView", s);
+    }
+
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
@@ -53,8 +57,10 @@ public class NavigationView extends View {
                 mDisplay.getRealMetrics(mDisplayMetrics);
                 mBarSize = mDisplayMetrics.heightPixels - getDisplayHeight(mDisplay);
                 if (checkDeviceHasNavigationBar(getContext())) {
+                    log("是虚拟按键");
                     setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), getDefaultBarSize());
                 } else {
+                    log("是屏幕外的返回按键");
                     setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), getBarSize());
                 }
             }
@@ -63,18 +69,16 @@ public class NavigationView extends View {
         }
     }
 
+    /**
+     * 是否有虚拟按键屏幕
+     */
     public static boolean checkDeviceHasNavigationBar(Context activity) {
         //通过判断设备是否有返回键、菜单键(不是虚拟键,是手机屏幕外的按键)来确定是否有navigation bar
         boolean hasMenuKey = ViewConfiguration.get(activity)
                 .hasPermanentMenuKey();
         boolean hasBackKey = KeyCharacterMap
                 .deviceHasKey(KeyEvent.KEYCODE_BACK);
-
-        if (!hasMenuKey && !hasBackKey) {
-            // 做任何自己需要做的,这个设备有一个导航栏
-            return true;
-        }
-        return false;
+        return !hasMenuKey && !hasBackKey;
     }
 
     private static int getDisplayWidth(Display display) {
